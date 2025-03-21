@@ -8,9 +8,10 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+
 android {
+    compileSdk = 35
     namespace = "com.example.bankapp"
-    compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

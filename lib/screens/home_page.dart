@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
+import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:bankapp/screens/account_model.dart';
 import 'package:bankapp/screens/savings_account_card.dart';
+import 'package:bankapp/screens/qr_screen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,11 +18,61 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
+  String _userName = "User"; // Default value
+  String _lastLogin = "Loading..."; // Placeholder text
+  final PageController _pageController =
+      PageController(); // PageView Controller
+  int _currentPage = 0; // Current page index
 
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserData(); // Fetch Firestore data on startup
+  }
+
+  void _fetchUserData() async {
+    User? user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) {
+      setState(() {
+        _lastLogin = DateFormat('MMM dd, yyyy hh:mm a')
+            .format(user.metadata.lastSignInTime ?? DateTime.now());
+      });
+
+      try {
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection("users")
+            .doc(user.uid)
+            .get();
+
+        if (userDoc.exists) {
+          setState(() {
+            _userName = userDoc['name'] ?? "User";
+          });
+        }
+      } catch (e) {
+        print("Error fetching user data: $e");
+      }
+    }
+  }
+
+  // void _onItemTapped(int index) {
+  //   setState(() {
+  //     _selectedIndex = index;
+  //   });
+  // }
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    if (index == 2) {
+      // Navigate to QR Scanner when "Scan & Pay" is tapped
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const ScanQRPage()),
+      );
+    } else {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   void _quitApp() {
@@ -50,12 +103,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    User? user = FirebaseAuth.instance.currentUser;
-    String userName =
-        user?.displayName ?? user?.email?.split('@').first ?? "User";
-    String lastLogin = DateFormat('MMM dd, yyyy hh:mm a')
-        .format(user?.metadata.lastSignInTime ?? DateTime.now());
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: PreferredSize(
@@ -74,12 +121,12 @@ class _HomePageState extends State<HomePage> {
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Welcome, $userName",
+                Text("Welcome, $_userName",
                     style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
                         color: Colors.white)),
-                Text("Last login: $lastLogin",
+                Text("Last login: $_lastLogin",
                     style:
                         const TextStyle(fontSize: 14, color: Colors.white70)),
               ],
@@ -104,12 +151,11 @@ class _HomePageState extends State<HomePage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Expanded(
-                child:
-                    _buildAccountSection()), // 🟢 Equal Space for Savings Account
-            const SizedBox(height: 10), // 🔸 Spacing
-            Expanded(
-                child: _buildFavoritesSection()) // 🟢 Equal Space for Favorites
+            Expanded(child: _buildAccountSection()),
+            const SizedBox(height: 10),
+            Expanded(child: _buildPageView()),
+            const SizedBox(height: 10),
+            _buildDotIndicator(),
           ],
         ),
       ),
@@ -136,46 +182,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ✅ Enhanced Savings Account Section
-  // Widget _buildAccountSection() {
-  //   return Container(
-  //     padding: const EdgeInsets.all(16),
-  //     decoration: BoxDecoration(
-  //       color: Colors.white,
-  //       borderRadius: BorderRadius.circular(12),
-  //       boxShadow: [
-  //         BoxShadow(color: Colors.grey.withOpacity(0.3), blurRadius: 10, spreadRadius: 2),
-  //       ],
-  //     ),
-  //     child: Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         const Text("Saving Account",
-  //             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
-  //         const SizedBox(height: 5),
-  //         const Text("0457104000208536", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-  //         const Spacer(),
-  //         Row(
-  //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //           children: [
-  //             ElevatedButton(
-  //               onPressed: () {},
-  //               style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-  //               child: const Text("Transfer"),
-  //             ),
-  //             ElevatedButton(
-  //               onPressed: () {},
-  //               style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-  //               child: const Text("Mini Statement"),
-  //             ),
-  //           ],
-  //         )
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  // ✅ Using the _buildAccountSection() function
+  // ✅ Account Section (Reused Component)
   Widget _buildAccountSection() {
     AccountModel myAccount = AccountModel(
       accountType: "Savings Account",
@@ -187,55 +194,85 @@ class _HomePageState extends State<HomePage> {
     return SavingsAccountCard(account: myAccount);
   }
 
-  // ✅ Enhanced Favorites Section
-  Widget _buildFavoritesSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.grey.withOpacity(0.3),
-              blurRadius: 10,
-              spreadRadius: 2),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text("My Favorites",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.red),
-                  onPressed: () {}),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Expanded(
-            child: GridView.count(
-              crossAxisCount: 3,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              children: [
-                _buildFavoriteCard(Icons.payment, "IMPS Payment"),
-                _buildFavoriteCard(Icons.account_balance, "IDBI Bank Transfer"),
-                _buildFavoriteCard(Icons.payment, "BHIM UPI"),
-                _buildFavoriteCard(Icons.savings, "Open FD"),
-                _buildFavoriteCard(Icons.attach_money, "Mutual Fund"),
-                _buildFavoriteCard(Icons.travel_explore, "Travel & Shop"),
-              ],
-            ),
-          ),
-        ],
+  // ✅ PageView for Different Sections
+  Widget _buildPageView() {
+    return PageView(
+      controller: _pageController,
+      onPageChanged: (index) {
+        setState(() {
+          _currentPage = index;
+        });
+      },
+      children: [
+        _buildFavoritesSection(),
+        _buildPayNowSection(),
+      ],
+    );
+  }
+
+  // ✅ Dot Indicator for PageView
+  Widget _buildDotIndicator() {
+    return SmoothPageIndicator(
+      controller: _pageController,
+      count: 2,
+      effect: ExpandingDotsEffect(
+        activeDotColor: Colors.blue.shade900,
+        dotColor: Colors.grey.shade300,
+        dotHeight: 8,
+        dotWidth: 8,
       ),
     );
   }
 
-  // 🔹 Reusable Favorite Card Widget
+  // ✅ "My Favorites" Section
+  Widget _buildFavoritesSection() {
+    return _buildFeatureGrid("My Favorites", [
+      _buildFeatureItem(Icons.payment, "IMPS Payment"),
+      _buildFeatureItem(Icons.account_balance, "IDBI Bank Transfer"),
+      _buildFeatureItem(Icons.payment, "BHIM UPI"),
+      _buildFeatureItem(Icons.savings, "Open FD"),
+      _buildFeatureItem(Icons.attach_money, "Mutual Fund"),
+      _buildFeatureItem(Icons.travel_explore, "Travel & Shop"),
+    ]);
+  }
+
+  // ✅ "Pay Now" Section
+  Widget _buildPayNowSection() {
+    return _buildFeatureGrid("Pay Now", [
+      _buildFeatureItem(Icons.send, "Self Account Transfer"),
+      _buildFeatureItem(Icons.account_balance_wallet, "IDBI Bank Transfer"),
+      _buildFeatureItem(Icons.sync_alt, "NEFT Payment"),
+      _buildFeatureItem(Icons.payment, "IMPS Payment"),
+      _buildFeatureItem(Icons.local_offer, "Deals & Delights"),
+      _buildFeatureItem(Icons.credit_card, "IDBI Card Payment"),
+    ]);
+  }
+
+  // 🔹 Reusable Feature Grid
+  Widget _buildFeatureGrid(String title, List<Widget> children) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+        Expanded(
+          child: GridView.count(
+            crossAxisCount: 3,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            children: children,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 🔹 Reusable Feature Item
+  Widget _buildFeatureItem(IconData icon, String title) {
+    return _buildFavoriteCard(icon, title);
+  }
+
   Widget _buildFavoriteCard(IconData icon, String title) {
     return Card(
       color: Colors.blue[50],

@@ -1,9 +1,10 @@
-import 'package:bankapp/screens/home_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'login_page_1.dart';
+import 'package:bankapp/screens/home_page.dart';
+import 'package:bankapp/screens/login_page_1.dart';
 
 class LoginPage2 extends StatefulWidget {
   const LoginPage2({super.key});
@@ -24,24 +25,29 @@ class _LoginPage2State extends State<LoginPage2> {
 
   Future<void> _loadUserData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    
-    // Fetching the stored username from SharedPreferences
     String? storedName = prefs.getString('userName');
+
     User? user = FirebaseAuth.instance.currentUser;
-
-    // Update the UI based on the stored user data
-    setState(() {
-      if (storedName != null && storedName.isNotEmpty) {
+    if (storedName != null) {
+      // Use stored name if available
+      setState(() {
         userName = storedName;
-      } else if (user != null && user.displayName != null) {
-        userName = user.displayName!;
-        prefs.setString('userName', userName); // Save username for later
-      } else {
-        userName = "User"; // Default username
-      }
-    });
+      });
+    } else if (user != null) {
+      // Fetch user data from Firestore
+      String uid = user.uid;
+      DocumentSnapshot userDoc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
 
-    print("Loaded User Name: $userName"); // Debugging
+      if (userDoc.exists) {
+        setState(() {
+          userName = userDoc['name'] ?? "User";
+        });
+
+        // Save name to SharedPreferences for future use
+        prefs.setString('userName', userName);
+      }
+    }
   }
 
   Future<void> _authenticate() async {
@@ -90,7 +96,7 @@ class _LoginPage2State extends State<LoginPage2> {
               const Icon(Icons.person, size: 100, color: Colors.blue),
               const SizedBox(height: 20),
               Text(
-                "Welcome back, $userName 👋", // Displays the username
+                "Welcome back, $userName 👋", // Displays the username from Firestore
                 style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 30),

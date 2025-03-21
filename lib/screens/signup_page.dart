@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:bankapp/services/database_users.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:bankapp/screens/home_page.dart';
@@ -21,17 +21,18 @@ class _SignupPageState extends State<SignupPage> {
   final TextEditingController accountNumberController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final TextEditingController confirmPasswordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   File? _profileImage;
-
   final ImagePicker _picker = ImagePicker();
 
   // Pick an Image from Gallery
   Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
+    final pickedFile =
+        await _picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
     if (pickedFile != null) {
       setState(() {
         _profileImage = File(pickedFile.path);
@@ -43,7 +44,10 @@ class _SignupPageState extends State<SignupPage> {
   Future<String?> _uploadProfileImage(String uid) async {
     if (_profileImage == null) return null;
     try {
-      final ref = FirebaseStorage.instance.ref().child('profile_images').child('$uid.jpg');
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('profile_images')
+          .child('$uid.jpg');
       await ref.putFile(_profileImage!);
       return await ref.getDownloadURL();
     } catch (e) {
@@ -53,49 +57,52 @@ class _SignupPageState extends State<SignupPage> {
   }
 
   // Handle User Signup
-  Future<void> _signUp() async {
-    if (!_formKey.currentState!.validate()) return;
+ Future<void> _signUp() async {
+  if (!_formKey.currentState!.validate()) return;
 
-    if (passwordController.text != confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match!')),
-      );
-      return;
-    }
-
-    try {
-      // Create User in Firebase Authentication
-      UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
-
-      String uid = userCredential.user!.uid;
-      String? profileImageUrl = await _uploadProfileImage(uid);
-
-      // Store User Details in Firestore
-      await FirebaseFirestore.instance.collection("users").doc(uid).set({
-        "uid": uid,
-        "name": nameController.text.trim(),
-        "account_number": accountNumberController.text.trim(),
-        "email": emailController.text.trim(),
-        "profile_image_url": profileImageUrl ?? "",
-        "biometricEnabled": false,
-        "createdAt": FieldValue.serverTimestamp(),
-      });
-
-      // Navigate to Home Page
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
-      );
-    } on FirebaseAuthException catch (e) {
-      print("Firebase Auth Error: ${e.message}");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? 'An error occurred')),
-      );
-    }
+  if (passwordController.text != confirmPasswordController.text) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Passwords do not match!')),
+    );
+    return;
   }
+
+  try {
+    // Create User in Firebase Authentication
+    UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      email: emailController.text.trim(),
+      password: passwordController.text.trim(),
+    );
+
+    String uid = userCredential.user!.uid;
+    String? profileImageUrl = await _uploadProfileImage(uid);
+
+    // Save user data in Firestore
+    await DatabaseService().createUser(
+      uid: uid,
+      name: nameController.text.trim(),
+      email: emailController.text.trim(),
+      accountNumber: accountNumberController.text.trim(),
+      profileImageUrl: profileImageUrl,
+    );
+
+    print("User created successfully: ${userCredential.user!.uid}");
+
+    if (!context.mounted) return;
+
+    // Navigate to Home Page after successful signup
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const HomePage()),
+    );
+
+  } on FirebaseAuthException catch (e) {
+    print("Firebase Auth Error: ${e.message}");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(e.message ?? 'An error occurred')),
+    );
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -108,11 +115,15 @@ class _SignupPageState extends State<SignupPage> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 40),
-              const Icon(Icons.person_add_alt_1_outlined, size: 80, color: Colors.black),
+              const Icon(Icons.person_add_alt_1_outlined,
+                  size: 80, color: Colors.black),
               const SizedBox(height: 20),
               const Text(
                 'Sign Up',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black),
+                style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
@@ -123,9 +134,11 @@ class _SignupPageState extends State<SignupPage> {
                 child: CircleAvatar(
                   radius: 50,
                   backgroundColor: Colors.grey[300],
-                  backgroundImage: _profileImage != null ? FileImage(_profileImage!) : null,
+                  backgroundImage:
+                      _profileImage != null ? FileImage(_profileImage!) : null,
                   child: _profileImage == null
-                      ? const Icon(Icons.camera_alt, size: 50, color: Colors.black)
+                      ? const Icon(Icons.camera_alt,
+                          size: 50, color: Colors.black)
                       : null,
                 ),
               ),
@@ -144,7 +157,9 @@ class _SignupPageState extends State<SignupPage> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.person_outline),
                       ),
-                      validator: (value) => value!.isEmpty ? 'Please enter account holder name' : null,
+                      validator: (value) => value!.isEmpty
+                          ? 'Please enter account holder name'
+                          : null,
                     ),
                     const SizedBox(height: 15),
 
@@ -157,7 +172,8 @@ class _SignupPageState extends State<SignupPage> {
                         prefixIcon: Icon(Icons.credit_card),
                       ),
                       keyboardType: TextInputType.number,
-                      validator: (value) => value!.isEmpty ? 'Please enter account number' : null,
+                      validator: (value) =>
+                          value!.isEmpty ? 'Please enter account number' : null,
                     ),
                     const SizedBox(height: 15),
 
@@ -171,7 +187,9 @@ class _SignupPageState extends State<SignupPage> {
                       ),
                       keyboardType: TextInputType.emailAddress,
                       validator: (value) =>
-                          value!.isEmpty || !value.contains('@') ? 'Enter a valid email' : null,
+                          value!.isEmpty || !value.contains('@')
+                              ? 'Enter a valid email'
+                              : null,
                     ),
                     const SizedBox(height: 15),
 
@@ -184,11 +202,16 @@ class _SignupPageState extends State<SignupPage> {
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
-                          icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          icon: Icon(_obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility),
+                          onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword),
                         ),
                       ),
-                      validator: (value) => value!.length < 6 ? 'Password must be at least 6 characters' : null,
+                      validator: (value) => value!.length < 6
+                          ? 'Password must be at least 6 characters'
+                          : null,
                     ),
                     const SizedBox(height: 15),
 
@@ -201,11 +224,17 @@ class _SignupPageState extends State<SignupPage> {
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
-                          icon: Icon(_obscureConfirmPassword ? Icons.visibility_off : Icons.visibility),
-                          onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                          icon: Icon(_obscureConfirmPassword
+                              ? Icons.visibility_off
+                              : Icons.visibility),
+                          onPressed: () => setState(() =>
+                              _obscureConfirmPassword =
+                                  !_obscureConfirmPassword),
                         ),
                       ),
-                      validator: (value) => value!.isEmpty ? 'Please confirm your password' : null,
+                      validator: (value) => value!.isEmpty
+                          ? 'Please confirm your password'
+                          : null,
                     ),
                     const SizedBox(height: 20),
 
@@ -214,13 +243,12 @@ class _SignupPageState extends State<SignupPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.black,
                         padding: const EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
                       ),
-                      onPressed:()=>  Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (context) => const HomePage()),
-                      ), 
-                      child: const Text('Sign Up', style: TextStyle(color: Colors.white, fontSize: 18)),
+                      onPressed: _signUp,
+                      child: const Text('Sign Up',
+                          style: TextStyle(color: Colors.white, fontSize: 18)),
                     ),
 
                     const SizedBox(height: 15),
@@ -229,7 +257,8 @@ class _SignupPageState extends State<SignupPage> {
                     TextButton(
                       onPressed: () => Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(builder: (context) => const LoginPage()),
+                        MaterialPageRoute(
+                            builder: (context) => const LoginPage()),
                       ),
                       child: const Text("Already have an account? Login"),
                     ),

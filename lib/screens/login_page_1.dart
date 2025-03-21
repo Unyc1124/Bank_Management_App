@@ -3,7 +3,7 @@ import 'package:bankapp/screens/login_page_2.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'signup_page.dart';
+import 'package:bankapp/screens/signup_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -143,7 +143,9 @@ class _LoginPageState extends State<LoginPage> {
                         keyboardType: TextInputType.emailAddress,
                         autocorrect: false,
                         validator: (value) {
-                          if (value == null || value.isEmpty || !value.contains('@')) {
+                          if (value == null ||
+                              value.isEmpty ||
+                              !value.contains('@')) {
                             return 'Please enter a valid email';
                           }
                           return null;

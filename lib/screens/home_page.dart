@@ -7,7 +7,11 @@ import 'package:flutter/services.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:bankapp/screens/account_model.dart';
 import 'package:bankapp/screens/savings_account_card.dart';
-import 'package:bankapp/screens/qr_screen.dart';
+import 'package:bankapp/screens/navbar.dart';
+import 'package:bankapp/screens/scanpay_tab.dart';
+import 'package:bankapp/screens/services_tab.dart';
+import 'package:bankapp/screens/cards_tab.dart';
+import 'package:bankapp/screens/accounts_tab.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -23,6 +27,14 @@ class _HomePageState extends State<HomePage> {
   final PageController _pageController =
       PageController(); // PageView Controller
   int _currentPage = 0; // Current page index
+
+   final List<Widget> _screens = [
+    const HomePage(),    // Services Page
+    const AccountsTab(), // Home Page Content
+    const ScanpayTab(),     // Scan & Pay Page
+    const CardsTab(),    // Accounts Page
+    const ServicesTab(),       // Cards Page
+  ];
 
   @override
   void initState() {
@@ -56,24 +68,12 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // void _onItemTapped(int index) {
-  //   setState(() {
-  //     _selectedIndex = index;
-  //   });
-  // }
   void _onItemTapped(int index) {
-    if (index == 2) {
-      // Navigate to QR Scanner when "Scan & Pay" is tapped
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const ScanQRPage()),
-      );
-    } else {
-      setState(() {
-        _selectedIndex = index;
-      });
-    }
+    setState(() {
+      _selectedIndex = index;
+    });
   }
+
 
   void _quitApp() {
     showDialog(
@@ -127,8 +127,7 @@ class _HomePageState extends State<HomePage> {
                         fontWeight: FontWeight.bold,
                         color: Colors.white)),
                 Text("Last login: $_lastLogin",
-                    style:
-                        const TextStyle(fontSize: 14, color: Colors.white70)),
+                    style: const TextStyle(fontSize: 14, color: Colors.white70)),
               ],
             ),
             leading: Builder(
@@ -147,39 +146,71 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+      
+      // ✅ Now body changes according to the selected index
+      body:_selectedIndex == 0 
+    ? SingleChildScrollView(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: _buildAccountSection()),
             const SizedBox(height: 10),
-            Expanded(child: _buildPageView()),
+            
+            // ✅ Account Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: _buildAccountSection(),
+            ),
+
+            const SizedBox(height: 20),
+
+            // ✅ PageView for Favorites & Pay Now
+            SizedBox(
+              
+              width:double.infinity,
+              height: 400, // Fixed height to prevent overflow
+              child: PageView(
+                controller: _pageController,
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentPage = index;
+                  });
+                },
+                
+                children: [
+                  Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child : _buildFavoritesSection(),
+                  // child : _buildPayNowSection(),
+                  ),
+                   Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  // child : _buildFavoritesSection(),
+                  child : _buildPayNowSection(),
+                  )
+                ],
+              ),
+            ),
+
             const SizedBox(height: 10),
-            _buildDotIndicator(),
+
+            // ✅ Dot Indicator
+            Center(child: _buildDotIndicator()),
+
+            const SizedBox(height: 20),
           ],
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: const Color(0xFF1E3A8A),
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white70,
-        showUnselectedLabels: true,
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(LucideIcons.home), label: 'Home'),
-          BottomNavigationBarItem(
-              icon: Icon(LucideIcons.banknote), label: 'Accounts'),
-          BottomNavigationBarItem(
-              icon: Icon(LucideIcons.scan), label: 'Scan & Pay'),
-          BottomNavigationBarItem(
-              icon: Icon(LucideIcons.creditCard), label: 'Cards'),
-          BottomNavigationBarItem(
-              icon: Icon(LucideIcons.settings), label: 'Services'),
-        ],
+      ) 
+    : _screens[_selectedIndex],
+ // Show other pages normally
+
+      bottomNavigationBar: CustomBottomNavBar(
+        selectedIndex: _selectedIndex,
+        onItemTapped: _onItemTapped,
       ),
     );
+
+    
+
   }
 
   // ✅ Account Section (Reused Component)

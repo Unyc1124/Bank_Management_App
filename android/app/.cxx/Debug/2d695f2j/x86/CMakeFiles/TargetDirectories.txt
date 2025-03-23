@@ -1,0 +1,2 @@
+C:/Users/aditi/OneDrive/Desktop/bankapp/android/app/.cxx/Debug/2d695f2j/x86/CMakeFiles/edit_cache.dir
+C:/Users/aditi/OneDrive/Desktop/bankapp/android/app/.cxx/Debug/2d695f2j/x86/CMakeFiles/rebuild_cache.dir

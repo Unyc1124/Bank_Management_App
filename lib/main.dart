@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
@@ -5,6 +7,8 @@ import 'package:bankapp/screens/signup_page.dart';
 import 'package:bankapp/screens/login_page_2.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sensors_plus/sensors_plus.dart'; // Import for shake detection
+import 'package:flutter/services.dart'; // For closing the app
 import 'firebase_options.dart';
 
 void main() async {
@@ -38,6 +42,50 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  static const double SHAKE_THRESHOLD = 20.0; // Adjust for sensitivity
+  int shakeCount = 0;
+  AccelerometerEvent? _lastEvent;
+  Timer? _resetTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _listenToShake();
+  }
+
+  /// Detects shakes by monitoring accelerometer events
+  void _listenToShake() {
+    accelerometerEvents.listen((event) {
+      if (_lastEvent != null) {
+        double deltaX = event.x - _lastEvent!.x;
+        double deltaY = event.y - _lastEvent!.y;
+        double deltaZ = event.z - _lastEvent!.z;
+
+        double speed = sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+
+        if (speed > SHAKE_THRESHOLD) {
+          shakeCount++;
+          if (shakeCount >= 2) {
+            _closeApp();
+          }
+        }
+      }
+
+      _lastEvent = event;
+
+      _resetTimer?.cancel();
+      _resetTimer = Timer(const Duration(seconds: 1), () {
+        shakeCount = 0; // Reset shake count after 1 second
+      });
+    });
+  }
+
+  /// Closes the app when a shake is detected
+  void _closeApp() {
+    SystemNavigator.pop(); // Exits the app
+  }
+
+  /// Navigates to Login or Signup page based on saved preference
   Future<void> _navigateToNextScreen() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
@@ -133,6 +181,11 @@ class _SplashScreenState extends State<SplashScreen> {
                     'Get Started',
                     style: TextStyle(color: Color.fromARGB(255, 21, 21, 22)),
                   ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  "Shake to Exit",
+                  style: TextStyle(color: Colors.white.withOpacity(0.7)),
                 ),
               ],
             ),
